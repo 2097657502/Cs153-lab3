@@ -31,11 +31,39 @@ void shminit() {
 int shm_open(int id, char **pointer) {
 
 //you write this
-
-
-
-
-return 0; //added to remove compiler warning -- you should decide what to return
+	acquire(&(shm_table.lock)); //prevent race condition
+	struct proc* cp=myproc();
+	//here is to find the id in shm table
+	//64 is size of shm pages
+	for(int i=0; i<64; i++){ 
+		//if id match
+		if(shm_table.shm_pages[i].id==id){
+			//map VA to PA
+			mappages(cp->pgdir, (char*)PGROUNDUP(cp->sz), PGSIZE, V2P(shm_table.shm_pages[i].frame), PTE_W|PTE_U);
+			//increase process that is using counter
+			//process accessing counter
+			shm_table.shm_pages[i].refcnt++;
+			//return pointer to VA
+			*pointer=(char*)PGROUNDUP(cp->sz);
+			//update sz pagesize
+			cp->sz=PGROUNDUP(cp->sz+PGSIZE);
+		}
+		// if id not match
+		else{
+			//id to VA
+			shm_table.shm_pages[i].id=id;
+			//reset
+			shm_table.shm_pages[i].frame=kalloc();
+			memset(shm_table.shm_pages[i].frame,0,PGSIZE);
+			shm_table.shm_pages[i].refcnt=1;
+			mappages(cp->pgdir, (char*)PGROUNDUP(cp->sz), PGSIZE, V2P(shm_table.shm_pages[i].frame), PTE_W|PTE_U);
+			*pointer=(char*)PGROUNDUP(cp->sz);
+			cp->sz=PGROUNDUP(cp->sz+PGSIZE);
+		}
+	}
+	release(&(shm_table.lock));
+	
+	return 0; //added to remove compiler warning -- you should decide what to return
 }
 
 
