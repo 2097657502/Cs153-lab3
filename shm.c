@@ -30,12 +30,13 @@ void shminit() {
 
 int shm_open(int id, char **pointer) {
 
+        int i;
 //you write this
 	acquire(&(shm_table.lock)); //prevent race condition
 	struct proc* cp=myproc();
 	//here is to find the id in shm table
 	//64 is size of shm pages
-	for(int i=0; i<64; i++){ 
+	for(i=0; i<64; i++){ 
 		//if id match
 		if(shm_table.shm_pages[i].id==id){
 			//map VA to PA
@@ -68,7 +69,23 @@ int shm_open(int id, char **pointer) {
 
 
 int shm_close(int id) {
-//you write this too!
+  int i;
+  acquire(&(shm_table.lock)); //prevent the race condition
+  for(i = 0; i < 64; i++){
+    if(shm_table.shm_pages[i].refcnt != 0){ //Checking to see if the refcnt of the current page is 0
+	if(shm_table.shm_pages[i].id==id){  //If not, we check to see if the id is the same as the one we passed in
+	    shm_table.shm_pages[i].refcnt--;//If it is, this means that we have a reference to this page, decrement
+	}
+    }
+    else{ //Clearing the page table if the refcnt of one of thesep pages is 0
+	shm_table.shm_pages[i].id =0;
+        shm_table.shm_pages[i].frame =0;
+        shm_table.shm_pages[i].refcnt =0;
+    }
+
+  }
+  release(&(shm_table.lock));
+  
 
 
 
